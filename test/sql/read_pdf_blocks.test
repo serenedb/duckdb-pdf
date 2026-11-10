@@ -1,0 +1,51 @@
+# name: test/sql/read_pdf_blocks.test
+# group: [sql]
+
+require pdf
+
+query IITIIII
+SELECT page, block, text, round(x), round(y), width > 0, height > 0
+FROM read_pdf_blocks('../duckdb_pdf/test/data/varusik.pdf') ORDER BY page, block;
+----
+1	1	varusik	60	710	true	true
+1	2	banochka	260	710	true	true
+1	3	sopley	60	670	true	true
+1	4	42	260	670	true	true
+2	1	varusik poesh	72	720	true	true
+
+query IIT
+SELECT page, block, text
+FROM read_pdf_blocks('../duckdb_pdf/test/data/varusik_encrypted.pdf', password := 'varusik', first_page := 2, last_page := 2);
+----
+2	1	varusik poesh
+
+query II
+SELECT count(DISTINCT filename), count(*)
+FROM read_pdf_blocks('../duckdb_pdf/test/data/varusik*.pdf', password := 'varusik');
+----
+2	10
+
+statement error
+SELECT * FROM read_pdf_blocks('../duckdb_pdf/test/data/varusik_encrypted.pdf', password := 'wrong');
+----
+PDF is encrypted
+
+statement error
+SELECT * FROM read_pdf_blocks('../duckdb_pdf/test/data/blank.pdf');
+----
+no extractable text
+
+statement error
+SELECT * FROM read_pdf_blocks('../duckdb_pdf/test/data/varusik.pdf', first_page := 3);
+----
+first_page exceeds the PDF page count
+
+statement error
+SELECT * FROM read_pdf_blocks('../duckdb_pdf/test/data/varusik.pdf', last_page := NULL);
+----
+options must not be NULL
+
+statement error
+SELECT * FROM read_pdf_blocks('../duckdb_pdf/test/data/invalid.pdf');
+----
+could not extract PDF text

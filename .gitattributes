@@ -1,2 +1,1 @@
-# Mark all PDF files as binary to prevent CRLF mangling on Windows checkout
 *.pdf binary
