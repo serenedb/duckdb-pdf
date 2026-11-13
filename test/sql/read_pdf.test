@@ -1,0 +1,48 @@
+# name: test/sql/read_pdf.test
+# group: [sql]
+
+require pdf
+
+query ITIII
+SELECT page, replace(text, chr(10), '|'), width, height, has_text_layer
+FROM read_pdf('../duckdb_pdf/test/data/varusik.pdf') ORDER BY page;
+----
+1	varusik banochka|sopley 42	612	792	true
+2	varusik poesh	612	792	true
+
+query T
+SELECT text FROM read_pdf('../duckdb_pdf/test/data/varusik_encrypted.pdf', password := 'varusik', first_page := 2, last_page := 2);
+----
+varusik poesh
+
+query II
+SELECT count(DISTINCT filename), count(*)
+FROM read_pdf('../duckdb_pdf/test/data/varusik*.pdf', password := 'varusik');
+----
+2	4
+
+query T
+SELECT replace(text, chr(10), '|')
+FROM read_pdf('../duckdb_pdf/test/data/varusik.pdf', layout := 'raw', last_page := 1);
+----
+varusik|banochka|sopley|42
+
+statement error
+SELECT * FROM read_pdf('../duckdb_pdf/test/data/varusik_encrypted.pdf', password := 'wrong');
+----
+PDF is encrypted
+
+statement error
+SELECT * FROM read_pdf('../duckdb_pdf/test/data/blank.pdf');
+----
+no extractable text
+
+statement error
+SELECT * FROM read_pdf('../duckdb_pdf/test/data/varusik.pdf', layout := 'invalid');
+----
+layout must be 'auto' or 'raw'
+
+statement error
+SELECT * FROM read_pdf('../duckdb_pdf/test/data/invalid.pdf');
+----
+could not extract PDF text

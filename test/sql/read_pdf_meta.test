@@ -1,76 +1,50 @@
 # name: test/sql/read_pdf_meta.test
-# description: read_pdf_meta function tests
 # group: [sql]
 
 require pdf
 
-statement ok
-PRAGMA enable_verification
-
-# ── hello.pdf metadata ────────────────────────────────────────────────────
-
-# Returns exactly 1 row for a 1-page file
-query I
-SELECT COUNT(*) FROM read_pdf_meta('test/data/hello.pdf');
+query TTTTTTITI
+SELECT title, author, subject, keywords, creator, producer, pages, pdf_version, encrypted
+FROM read_pdf_meta('../duckdb_pdf/test/data/inspect_varusik.pdf');
 ----
-1
+varusik report	varusik	banochka	sopley	varusik generator	SereneDB	2	1.4	false
 
-# pages column reports the true page count
-query I
-SELECT pages FROM read_pdf_meta('test/data/hello.pdf');
+query TII
+SELECT title, pages, encrypted FROM read_pdf_meta('../duckdb_pdf/test/data/varusik_encrypted.pdf', password := 'varusik');
 ----
-1
+(empty)	2	true
 
-# not encrypted
-query I
-SELECT encrypted FROM read_pdf_meta('test/data/hello.pdf');
+query II
+SELECT count(*), sum(pages) FROM read_pdf_meta('../duckdb_pdf/test/data/varusik*.pdf', password := 'varusik');
 ----
-false
-
-# filename column is populated
-query I
-SELECT ends_with(lower(filename), 'hello.pdf') FROM read_pdf_meta('test/data/hello.pdf');
-----
-true
-
-# ── two_pages.pdf: pages = 2 ──────────────────────────────────────────────
+2	4
 
 query I
-SELECT pages FROM read_pdf_meta('test/data/two_pages.pdf');
-----
-2
-
-query I
-SELECT encrypted FROM read_pdf_meta('test/data/two_pages.pdf');
-----
-false
-
-# ── table.pdf: pages = 1, not encrypted ──────────────────────────────────
-
-query I
-SELECT pages FROM read_pdf_meta('test/data/table.pdf');
+SELECT count(*) FROM read_pdf_meta('../duckdb_pdf/test/data/varusik*.pdf', ignore_errors := true);
 ----
 1
 
 query I
-SELECT encrypted FROM read_pdf_meta('test/data/table.pdf');
-----
-false
-
-# ── scanned.pdf: pages = 1, not encrypted ────────────────────────────────
-
-query I
-SELECT pages FROM read_pdf_meta('test/data/scanned.pdf');
+SELECT count(*) FROM read_pdf_meta('../duckdb_pdf/test/data/blank.pdf');
 ----
 1
 
 query I
-SELECT encrypted FROM read_pdf_meta('test/data/scanned.pdf');
+SELECT count(*) FROM read_pdf_meta('../duckdb_pdf/test/data/invalid.pdf', ignore_errors := true);
 ----
-false
-
-# ── error: missing file ───────────────────────────────────────────────────
+0
 
 statement error
-SELECT * FROM read_pdf_meta('test/data/does_not_exist.pdf');
+SELECT * FROM read_pdf_meta('../duckdb_pdf/test/data/invalid.pdf');
 ----
+could not inspect PDF
+
+statement error
+SELECT * FROM read_pdf_meta('../duckdb_pdf/test/data/varusik_encrypted.pdf');
+----
+PDF is encrypted
+
+statement error
+SELECT * FROM read_pdf_meta('../duckdb_pdf/test/data/varusik.pdf', ignore_errors := NULL);
+----
+options must not be NULL
