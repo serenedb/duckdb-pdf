@@ -1,0 +1,45 @@
+# name: test/sql/pdf_attachments.test
+# group: [sql]
+
+require pdf
+
+query II
+SELECT count(*), sum(size) FROM pdf_attachments('../duckdb_pdf/test/data/inspect_many.pdf');
+----
+2050	28700
+
+statement error
+SELECT * FROM pdf_attachments('../duckdb_pdf/test/data/inspect_cycle.pdf');
+----
+cyclic or oversized inspection tree
+
+query TTITT
+SELECT name, description, size, mime_type, hex(data)
+FROM pdf_attachments('../duckdb_pdf/test/data/inspect_varusik.pdf');
+----
+varusik.txt	varusik attachment	14	text/plain	7661727573696B00706F6573680A
+
+query I
+SELECT count(*) FROM pdf_attachments('../duckdb_pdf/test/data/varusik.pdf');
+----
+0
+
+query I
+SELECT count(*) FROM pdf_attachments('../duckdb_pdf/test/data/varusik_encrypted.pdf', password := 'varusik');
+----
+0
+
+statement error
+SELECT * FROM pdf_attachments('../duckdb_pdf/test/data/invalid.pdf');
+----
+could not inspect PDF
+
+statement error
+SELECT * FROM pdf_attachments('../duckdb_pdf/test/data/varusik_encrypted.pdf', password := 'wrong');
+----
+PDF is encrypted
+
+statement error
+SELECT * FROM pdf_attachments('../duckdb_pdf/test/data/varusik.pdf', password := NULL);
+----
+options must not be NULL

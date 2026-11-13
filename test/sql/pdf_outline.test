@@ -1,0 +1,46 @@
+# name: test/sql/pdf_outline.test
+# group: [sql]
+
+require pdf
+
+query IITI
+SELECT ord, depth, title, page FROM pdf_outline('../duckdb_pdf/test/data/inspect_varusik.pdf') ORDER BY ord;
+----
+1	1	varusik 1	1
+2	2	varusik 2	2
+3	1	varusik 3	1
+
+query I
+SELECT count(*) FROM pdf_outline('../duckdb_pdf/test/data/varusik.pdf');
+----
+0
+
+query I
+SELECT count(*) FROM pdf_outline('../duckdb_pdf/test/data/varusik_encrypted.pdf', password := 'varusik');
+----
+0
+
+query III
+SELECT count(*), min(ord), max(ord) FROM pdf_outline('../duckdb_pdf/test/data/inspect_many.pdf');
+----
+2050	1	2050
+
+query I
+SELECT count(*) FROM pdf_outline('../duckdb_pdf/test/data/invalid.pdf', ignore_errors := true);
+----
+0
+
+statement error
+SELECT * FROM pdf_outline('../duckdb_pdf/test/data/inspect_cycle.pdf');
+----
+cyclic or oversized inspection tree
+
+statement error
+SELECT * FROM pdf_outline('../duckdb_pdf/test/data/invalid.pdf');
+----
+could not inspect PDF
+
+statement error
+SELECT * FROM pdf_outline('../duckdb_pdf/test/data/varusik_encrypted.pdf', password := 'wrong');
+----
+PDF is encrypted

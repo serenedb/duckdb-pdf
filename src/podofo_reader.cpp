@@ -19,6 +19,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "podofo_reader.hpp"
+#include "podofo_document.hpp"
 #include "podofo_layout.hpp"
 #include "podofo_tables.hpp"
 
@@ -31,7 +32,6 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <duckdb/common/file_system.hpp>
 #include <duckdb/common/exception.hpp>
 #include <duckdb/common/multi_file/multi_file_reader.hpp>
 #include <duckdb/common/types/data_chunk.hpp>
@@ -133,25 +133,8 @@ unique_ptr<GlobalTableFunctionState> PdfInit(ClientContext &, TableFunctionInitI
 }
 
 void OpenPdf(ClientContext &context, const PdfBindData &bind, PdfState &state) {
-	auto &fs = FileSystem::GetFileSystem(context);
 	const auto &path = bind.files[state.file];
-	auto handle = fs.OpenFile(path, FileFlags::FILE_FLAGS_READ);
-	const auto size = fs.GetFileSize(*handle);
-	if (size <= 0 || !handle->CanSeek()) {
-		throw InvalidInputException("read_pdf: expected a nonempty seekable file: %s", path.path);
-	}
-	state.bytes.resize(size);
-	int64_t offset = 0;
-	while (offset < size) {
-		context.InterruptCheck();
-		const auto count = fs.Read(*handle, state.bytes.data() + offset, std::min<int64_t>(size - offset, 1024 * 1024));
-		if (count <= 0) {
-			throw IOException("read_pdf: unexpected end of file: %s", path.path);
-		}
-		offset += count;
-	}
-	state.document = std::make_unique<PoDoFo::PdfMemDocument>();
-	state.document->LoadFromBuffer(PoDoFo::bufferview {state.bytes.data(), state.bytes.size()}, bind.password);
+	state.document = pdf::OpenDocument(context, path, bind.password, state.bytes, "read_pdf");
 	const auto pages = state.document->GetPages().GetCount();
 	if (pages == 0) {
 		throw InvalidInputException("read_pdf: PDF has no pages: %s", path.path);
@@ -321,6 +304,7 @@ void PdfScan(ClientContext &context, TableFunctionInput &input, DataChunk &outpu
 } // namespace
 
 void LoadPdfFunctions(ExtensionLoader &loader) {
+	pdf::LoadInspectionFunctions(loader);
 	for (const auto name : {"read_pdf", "read_pdf_blocks", "read_pdf_tables"}) {
 		FunctionSignature signature;
 		signature.AddPositionalOnly("path", LogicalType::VARCHAR)
